@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CROMPTON Solar Monitor | Single-Panel Soiling Intelligence</title>
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand-group">
+                <div class="brand-logo-mark">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="brand-title">CROMPTON <span class="brand-highlight">SolarSense</span></h1>
+                    <p class="brand-subtitle">Single-Panel Soiling Loss & Performance Telemetry Shell</p>
+                </div>
+            </div>
+
+            <div class="header-status">
+                <div class="status-indicator">
+                    <span class="status-dot pulsing"></span>
+                    <span id="backendStatusBadge" class="status-label">Backend Online</span>
+                </div>
+                <div class="sensor-source-chip" id="sensorSourceChip" title="Sensor Source">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="4"/><path d="M1.42 9a11 11 0 0 0 0 6M5.88 3.88a11 11 0 0 0 0 16.24M12 1a11 11 0 0 1 0 22M18.12 3.88a11 11 0 0 1 0 16.24M22.58 9a11 11 0 0 1 0 6"/>
+                    </svg>
+                    <span id="sensorSourceLabel">Sensor: Simulated</span>
+                </div>
+                <div class="panel-chip">
+                    <span class="panel-id">{{ metrics.panel_info.panel_id }}</span>
+                    <span class="panel-rating">{{ metrics.panel_info.rated_capacity_w }}W Mono</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-shell">
+        <!-- Top Stats Row: Core KPIs (Items 1 to 5) -->
+        <section class="kpi-grid">
+            <!-- 1. Actual Power -->
+            <div class="kpi-card" id="cardActualPower">
+                <div class="kpi-header">
+                    <span class="kpi-title">Actual Power</span>
+                    <span class="kpi-tag tag-live" id="actualPowerTag">Live</span>
+                </div>
+                <div class="kpi-value-row">
+                    <span class="kpi-value" id="valActualPower">{{ metrics.power_metrics.actual_power_w }}</span>
+                    <span class="kpi-unit">W</span>
+                </div>
+                <div class="kpi-footer">
+                    <span>V: <span id="valPanelVoltage" class="font-mono">{{ metrics.power_metrics.panel_voltage_v }}</span>V | I: <span id="valPanelCurrent" class="font-mono">{{ metrics.power_metrics.panel_current_a }}</span>A</span>
+                </div>
+            </div>
+
+            <!-- 2. Expected Clean Power -->
+            <div class="kpi-card" id="cardExpectedPower">
+                <div class="kpi-header">
+                    <span class="kpi-title">Expected Clean Power</span>
+                    <span class="kpi-tag tag-model">STC Ref</span>
+                </div>
+                <div class="kpi-value-row">
+                    <span class="kpi-value" id="valExpectedPower">{{ metrics.power_metrics.expected_clean_power_w }}</span>
+                    <span class="kpi-unit">W</span>
+                </div>
+                <div class="kpi-footer">
+                    <span>Irradiance: {{ metrics.weather_conditions.solar_irradiance_wm2 }} W/m²</span>
+                </div>
+            </div>
+
+            <!-- 3. Soiling Loss % -->
+            <div class="kpi-card highlight-card warning" id="cardSoilingLoss">
+                <div class="kpi-header">
+                    <span class="kpi-title">Soiling Loss %</span>
+                    <span class="kpi-tag tag-warning" id="kpiCleaningTag">CLEANING ADVISED</span>
+                </div>
+                <div class="kpi-value-row">
+                    <span class="kpi-value" id="valSoilingLoss">{{ metrics.power_metrics.soiling_loss_percent }}</span>
+                    <span class="kpi-unit">%</span>
+                </div>
+                <div class="kpi-footer">
+                    <span>Power Loss: <strong id="valPowerLoss" class="font-mono">37.4</strong> W</span>
+                </div>
+            </div>
+
+            <!-- 4. Energy Loss -->
+            <div class="kpi-card" id="cardEnergyLoss">
+                <div class="kpi-header">
+                    <span class="kpi-title">Energy Loss</span>
+                    <span class="kpi-tag" id="valEnergyLossTag">Daily Deficit</span>
+                </div>
+                <div class="kpi-value-row">
+                    <span class="kpi-value" id="valEnergyLoss">{{ metrics.power_metrics.energy_loss_kwh }}</span>
+                    <span class="kpi-unit">kWh</span>
+                </div>
+                <div class="kpi-footer">
+                    <span>Lost generation capacity</span>
+                </div>
+            </div>
+
+            <!-- 5. Estimated ₹ Loss -->
+            <div class="kpi-card" id="cardFinancialLoss">
+                <div class="kpi-header">
+                    <span class="kpi-title">Estimated ₹ Loss</span>
+                    <span class="kpi-tag tag-inr" id="valTariffTag">Tariff @ ₹8</span>
+                </div>
+                <div class="kpi-value-row">
+                    <span class="currency-symbol">₹</span>
+                    <span class="kpi-value" id="valFinancialLoss">{{ metrics.power_metrics.estimated_financial_loss_inr }}</span>
+                </div>
+                <div class="kpi-footer">
+                    <span>Cost deficit based on tariff</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Location Search Bar -->
+        <section class="location-search-bar" id="locationSearchBar">
+            <div class="location-search-inner">
+                <div class="location-input-group">
+                    <svg class="location-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    <input
+                        id="locationInput"
+                        class="location-text-input"
+                        type="text"
+                        placeholder="Enter location… e.g. Pune"
+                        autocomplete="off"
+                        aria-label="Weather location"
+                    />
+                </div>
+                <button type="button" id="btnGetWeather" class="btn-get-weather">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    Get Weather
+                </button>
+                <div id="weatherLoadingSpinner" class="weather-spinner" hidden>
+                    <span class="spinner-ring"></span> Fetching…
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Analytics & Insight Grid -->
+        <section class="analytics-layout">
+            <!-- Left Column: Graph (Item 6) + Recent Readings Table (Item 11) -->
+            <div class="analytics-primary">
+                <!-- 6. Actual vs Expected Power Graph -->
+                <div class="content-card graph-card" id="sectionPowerGraph">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">Actual vs Expected Power (Diurnal Curve)</h2>
+                            <p class="card-subtitle">Real-time comparison between clean reference power and actual soiled output</p>
+                        </div>
+                        <div class="chart-legend-badge">
+                            <span class="legend-dot clean"></span> Clean Ref
+                            <span class="legend-dot actual"></span> Soiled Actual
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="powerComparisonChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 11. Recent Readings Table -->
+                <div class="content-card" id="sectionRecentReadings">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">Recent Readings</h2>
+                            <p class="card-subtitle">Continuous single-panel telemetry log (dummy dataset)</p>
+                        </div>
+                        <span class="badge-pill">6 Cycles Logged</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Irradiance (W/m²)</th>
+                                    <th>Ambient (°C)</th>
+                                    <th>Panel Temp (°C)</th>
+                                    <th>Actual (W)</th>
+                                    <th>Expected (W)</th>
+                                    <th>Soiling Loss</th>
+                                    <th>Condition</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentReadingsBody">
+                                {% for r in metrics.recent_readings %}
+                                <tr>
+                                    <td class="font-mono">{{ r.timestamp }}</td>
+                                    <td>{{ r.irradiance }}</td>
+                                    <td>{{ r.ambient_temp }}°</td>
+                                    <td>{{ r.panel_temp }}°</td>
+                                    <td class="power-cell font-mono">{{ r.actual_power }} W</td>
+                                    <td class="clean-cell font-mono">{{ r.expected_power }} W</td>
+                                    <td class="loss-cell font-mono">{{ r.loss_percent }}%</td>
+                                    <td><span class="status-badge-chip badge-soiled">{{ r.status }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Weather (7), AI Insight (8), Panel Health (9), System Status (10) -->
+            <aside class="analytics-sidebar">
+                <!-- 8. AI/Prediction Insight (ML RandomForest) -->
+                <div class="content-card ai-insight-card" id="sectionAIInsight">
+                    <div class="card-header-compact">
+                        <div class="ai-header-badge">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                            </svg>
+                            <span>ML Soiling Engine</span>
+                        </div>
+                        <span class="urgency-pill pill-medium" id="valCleaningStatus">CLEANING ADVISED</span>
+                    </div>
+                    <div class="insight-content">
+                        <!-- Visual Comparison: Actual Power vs Expected Clean Power -->
+                        <div class="power-comparison-visual" id="powerComparisonVisual">
+                            <div class="comparison-visual-header">
+                                <span class="visual-title">Actual vs Expected Clean Power</span>
+                                <span class="visual-ratio font-mono" id="valVisualRatio">79.5% clean power</span>
+                            </div>
+                            <div class="visual-dual-bar">
+                                <div class="visual-bar-row">
+                                    <span class="visual-bar-label">Actual Power</span>
+                                    <div class="visual-bar-track">
+                                        <div class="visual-bar-fill actual-bar" id="barActualFill" style="width: 79.5%;"></div>
+                                    </div>
+                                    <span class="visual-bar-val font-mono" id="barActualVal">145.2 W</span>
+                                </div>
+                                <div class="visual-bar-row">
+                                    <span class="visual-bar-label">Expected Clean</span>
+                                    <div class="visual-bar-track">
+                                        <div class="visual-bar-fill clean-bar" id="barCleanFill" style="width: 100%;"></div>
+                                    </div>
+                                    <span class="visual-bar-val font-mono" id="barCleanVal">182.6 W</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="insight-metric-box">
+                            <div class="insight-stat">
+                                <span class="stat-label">Power Loss (Deficit)</span>
+                                <span class="stat-val font-mono" id="valInsightPowerLoss">37.4 W</span>
+                            </div>
+                            <div class="insight-stat">
+                                <span class="stat-label">Estimated Energy Loss</span>
+                                <span class="stat-val font-mono" id="valInsightEnergyLoss">0.30 kWh</span>
+                            </div>
+                            <div class="insight-stat">
+                                <span class="stat-label">Estimated Cost Deficit</span>
+                                <span class="stat-val font-mono" id="valInsightCostLoss">₹ 2.40</span>
+                            </div>
+                            <div class="insight-stat">
+                                <span class="stat-label">ML Model Type</span>
+                                <span class="stat-val font-mono" style="font-size: 0.82rem; color: var(--color-primary-light);">RandomForest</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather-Aware Cleaning Recommendation Card -->
+                <div class="content-card cleaning-rec-card" id="sectionCleaningRecommendation">
+                    <div class="card-header-compact">
+                        <div class="rec-title-wrap">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                            </svg>
+                            <h3 class="sidebar-card-title">Cleaning Recommendation</h3>
+                        </div>
+                        <span class="urgency-pill pill-medium" id="valCleaningRecBadge">NO CLEANING NEEDED</span>
+                    </div>
+                    <div class="cleaning-rec-content">
+                        <div class="rec-banner rec-banner-normal" id="recBannerBox">
+                            <div class="rec-action-row">
+                                <span class="rec-action-icon" id="recActionIcon">✨</span>
+                                <div class="rec-action font-mono" id="valRecAction">NO CLEANING NEEDED</div>
+                            </div>
+                            <div class="rec-description" id="valRecDesc">Soiling is low (&lt;5%). Clean panels operating at peak yield.</div>
+                        </div>
+                        <div class="rec-meta-row">
+                            <div class="rec-meta-box">
+                                <span class="rec-meta-label">24h Rain Forecast</span>
+                                <span class="rec-meta-val font-mono" id="valRecRainExpected">No Rain Forecast ☀️</span>
+                            </div>
+                            <div class="rec-meta-box">
+                                <span class="rec-meta-label">Rain Probability</span>
+                                <span class="rec-meta-val font-mono" id="valRecRainProb">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Weather Conditions (Live – Open-Meteo) -->
+                <div class="content-card" id="sectionWeather">
+                    <div class="card-header-compact">
+                        <h3 class="sidebar-card-title">Weather Conditions</h3>
+                        <span class="pill-neutral" id="weatherSourceTag">Open-Meteo</span>
+                    </div>
+
+                    <!-- Resolved location banner -->
+                    <div id="weatherLocationBanner" class="weather-location-banner" hidden>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        <span id="weatherLocationName"></span>
+                        <span id="weatherCoords" class="weather-coords"></span>
+                    </div>
+
+                    <!-- Empty state prompt (shown before first fetch) -->
+                    <div id="weatherEmptyState" class="weather-empty-state">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+                            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+                        </svg>
+                        <p>Enter a location above<br>to load live weather</p>
+                    </div>
+
+                    <!-- Live weather grid (shown after fetch) -->
+                    <div id="weatherDataGrid" class="weather-grid" hidden>
+                        <div class="weather-item">
+                            <span class="w-label">Temperature</span>
+                            <span class="w-value font-mono" id="wvTemp">—<small> °C</small></span>
+                        </div>
+                        <div class="weather-item">
+                            <span class="w-label">Humidity</span>
+                            <span class="w-value font-mono" id="wvHumidity">—<small> %</small></span>
+                        </div>
+                        <div class="weather-item">
+                            <span class="w-label">Solar Radiation</span>
+                            <span class="w-value font-mono" id="wvSolarRad">—<small> W/m²</small></span>
+                        </div>
+                        <div class="weather-item">
+                            <span class="w-label">Cloud Cover</span>
+                            <span class="w-value font-mono" id="wvCloudCover">—<small> %</small></span>
+                        </div>
+                        <div class="weather-item">
+                            <span class="w-label">Rain (Live / 24h)</span>
+                            <span class="w-value font-mono" id="wvRain">—<small> mm</small></span>
+                        </div>
+                        <div class="weather-item">
+                            <span class="w-label">Wind Speed</span>
+                            <span class="w-value font-mono" id="wvWindSpeed">—<small> km/h</small></span>
+                        </div>
+                        <div class="weather-item">
+                            <span class="w-label">24h Rain Chance</span>
+                            <span class="w-value font-mono" id="wvRainProb">—<small> %</small></span>
+                        </div>
+                        <div class="weather-item">
+                            <span class="w-label">24h Rain Volume</span>
+                            <span class="w-value font-mono" id="wvRainForecast">—<small> mm</small></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 9. Panel Health -->
+                <div class="content-card" id="sectionPanelHealth">
+                    <div class="card-header-compact">
+                        <h3 class="sidebar-card-title">Panel Health</h3>
+                        <span class="pill-healthy">{{ metrics.panel_health.overall_status }}</span>
+                    </div>
+                    <div class="health-breakdown">
+                        <div class="health-row">
+                            <span>Operational Efficiency</span>
+                            <span class="font-mono">{{ metrics.panel_health.efficiency_ratio }}%</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: {{ metrics.panel_health.efficiency_ratio }}%;"></div>
+                        </div>
+                        <div class="health-stats-row">
+                            <div>
+                                <span class="sub-label">Cell Degradation</span>
+                                <div class="sub-val">{{ metrics.panel_health.cell_degradation_index }}</div>
+                            </div>
+                            <div>
+                                <span class="sub-label">Thermal Derating</span>
+                                <div class="sub-val">{{ metrics.panel_health.thermal_derating_percent }}%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 10. System Status -->
+                <div class="content-card" id="sectionSystemStatus">
+                    <div class="card-header-compact">
+                        <h3 class="sidebar-card-title">System Status</h3>
+                        <button id="btnHealthCheck" class="btn-refresh" title="Ping Backend /api/health">Ping API</button>
+                    </div>
+                    <ul class="system-meta-list">
+                        <li>
+                            <span class="meta-label">Flask Backend</span>
+                            <span class="meta-val healthy-text" id="statusFlask">Running</span>
+                        </li>
+                        <li>
+                            <span class="meta-label">Supabase DB</span>
+                            <span class="meta-val healthy-text" id="statusSupabase">Connected</span>
+                        </li>
+                        <li>
+                            <span class="meta-label">Weather API</span>
+                            <span class="meta-val healthy-text" id="statusWeatherApi">Open-Meteo Ready</span>
+                        </li>
+                        <li>
+                            <span class="meta-label">MQTT Ingestion</span>
+                            <span class="meta-val muted-text">Pending Integration</span>
+                        </li>
+                        <li>
+                            <span class="meta-label">Telemetry Ingestion</span>
+                            <span class="meta-val">Mock Simulation</span>
+                        </li>
+                        <li>
+                            <span class="meta-label">Last Timestamp</span>
+                            <span class="meta-val font-mono" id="statusLastTimestamp">{{ metrics.system_status.last_updated }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </aside>
+        </section>
+    </main>
+
+    <!-- Embedded Initial Chart Data for dashboard.js -->
+    <script id="initialChartData" type="application/json">
+        {{ metrics.graph_data | tojson }}
+    </script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
