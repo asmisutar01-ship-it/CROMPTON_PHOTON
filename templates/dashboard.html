@@ -118,10 +118,10 @@
                 </div>
             </div>
 
-            <!-- 5. Estimated ₹ Loss -->
+            <!-- 5. Estimated Future Savings -->
             <div class="kpi-card" id="cardFinancialLoss">
                 <div class="kpi-header">
-                    <span class="kpi-title">Estimated ₹ Loss</span>
+                    <span class="kpi-title">Estimated Future Savings</span>
                     <span class="kpi-tag tag-inr" id="valTariffTag">Tariff @ ₹8</span>
                 </div>
                 <div class="kpi-value-row">
@@ -129,7 +129,7 @@
                     <span class="kpi-value" id="valFinancialLoss">{{ metrics.power_metrics.estimated_financial_loss_inr }}</span>
                 </div>
                 <div class="kpi-footer">
-                    <span>Cost deficit based on tariff</span>
+                    <span>Recoverable energy × electricity tariff</span>
                 </div>
             </div>
         </section>
@@ -161,6 +161,7 @@
                 </div>
             </div>
         </section>
+        <div id="weatherErrorBanner" class="weather-error-banner" role="alert" aria-live="polite" hidden></div>
 
         <!-- Main Analytics & Insight Grid -->
         <section class="analytics-layout">
@@ -273,7 +274,7 @@
                                 <span class="stat-val font-mono" id="valInsightEnergyLoss">0.30 kWh</span>
                             </div>
                             <div class="insight-stat">
-                                <span class="stat-label">Estimated Cost Deficit</span>
+                                <span class="stat-label">Estimated Future Savings</span>
                                 <span class="stat-val font-mono" id="valInsightCostLoss">₹ 2.40</span>
                             </div>
                             <div class="insight-stat">
@@ -305,12 +306,24 @@
                         </div>
                         <div class="rec-meta-row">
                             <div class="rec-meta-box">
-                                <span class="rec-meta-label">24h Rain Forecast</span>
+                                <span class="rec-meta-label">Rain in Next 4 Hours</span>
                                 <span class="rec-meta-val font-mono" id="valRecRainExpected">No Rain Forecast ☀️</span>
                             </div>
                             <div class="rec-meta-box">
-                                <span class="rec-meta-label">Rain Probability</span>
+                                <span class="rec-meta-label">4h Rain Probability</span>
                                 <span class="rec-meta-val font-mono" id="valRecRainProb">0%</span>
+                            </div>
+                            <div class="rec-meta-box">
+                                <span class="rec-meta-label">Estimated Future Savings</span>
+                                <span class="rec-meta-val font-mono" id="valFutureSavings">₹ 0.00</span>
+                            </div>
+                            <div class="rec-meta-box">
+                                <span class="rec-meta-label">Automated Cleaning Cost</span>
+                                <span class="rec-meta-val font-mono" id="valCleaningCost">₹ 0.00</span>
+                            </div>
+                            <div class="rec-meta-box">
+                                <span class="rec-meta-label">Net Benefit</span>
+                                <span class="rec-meta-val font-mono" id="valNetBenefit">₹ 0.00</span>
                             </div>
                         </div>
                     </div>
@@ -359,7 +372,7 @@
                             <span class="w-value font-mono" id="wvCloudCover">—<small> %</small></span>
                         </div>
                         <div class="weather-item">
-                            <span class="w-label">Rain (Live / 24h)</span>
+                            <span class="w-label">Rain (Live / Next 4h)</span>
                             <span class="w-value font-mono" id="wvRain">—<small> mm</small></span>
                         </div>
                         <div class="weather-item">
@@ -367,11 +380,11 @@
                             <span class="w-value font-mono" id="wvWindSpeed">—<small> km/h</small></span>
                         </div>
                         <div class="weather-item">
-                            <span class="w-label">24h Rain Chance</span>
+                            <span class="w-label">4h Rain Chance</span>
                             <span class="w-value font-mono" id="wvRainProb">—<small> %</small></span>
                         </div>
                         <div class="weather-item">
-                            <span class="w-label">24h Rain Volume</span>
+                            <span class="w-label">Rain Volume Next 4h</span>
                             <span class="w-value font-mono" id="wvRainForecast">—<small> mm</small></span>
                         </div>
                     </div>

@@ -15,7 +15,7 @@ load_dotenv()
 # Import data providers and ML engine
 from demo_data import get_demo_metrics
 from weather_api import get_weather_by_location, geocode_location, get_weather
-from prediction_model import train_model, predict_clean_power, calculate_soiling_loss
+from prediction_model import train_model, predict_clean_power, calculate_soiling_loss, get_model_metrics
 from sensor_service import get_sensor_reading
 
 # Automatically train the lightweight ML model on startup
@@ -44,6 +44,7 @@ def health_check():
         "database": "Supabase (Client connected & authenticated)",
         "weather": "Open-Meteo (No API key required)",
         "prediction_engine": "RandomForestRegressor (Trained & Active)",
+        "model_metrics": get_model_metrics(),
         "mqtt": "Standby (ready for ingestion)",
         "message": "CROMPTON Solar Monitor Backend is running successfully."
     }), 200
@@ -121,36 +122,37 @@ def api_prediction():
         → return JSON with all metrics, rain forecast & sensor metadata
 
     Optional query parameters override sensor/weather defaults:
-    - actual_power (W)
     - expected_clean_power (W)
+    - voltage (V), current (A), ldr_value (raw light level)
     - solar_radiation (W/m²)
-    - temperature (°C)
+    - ambient_temperature (°C)
     - cloud_cover (%)
     - humidity (%)
-    - location (city string to pull live 24h precipitation forecast)
-    - rain_expected (bool: true/false)
-    - rain_probability (float: 0-100%)
+    - location (city string to pull live weather and four-hour precipitation forecast)
+    - rain_expected_next_4h (bool: true/false)
+    - rain_probability_next_4h (float: 0-100%)
     """
     try:
         args = request.args
 
         # 1. Pull from sensor abstraction layer (simulated or hardware)
         sensor = get_sensor_reading()
-        voltage        = sensor["voltage"]
-        current        = sensor["current"]
-        panel_temp     = sensor["panel_temperature"]
-        actual_power   = float(args.get("actual_power", sensor["actual_power"]))
+        voltage        = float(args.get("voltage", sensor["voltage"]))
+        current        = float(args.get("current", sensor["current"]))
+        panel_temp     = float(args.get("panel_temperature", sensor["panel_temperature"]))
+        ldr_value      = float(args.get("ldr_value", sensor.get("ldr_value", 0.0)))
+        actual_power   = round(float(voltage) * float(current), 1)
         sensor_source  = sensor.get("sensor_source", "Simulated")
 
         # 2. Build feature set for the prediction model
         features = {
             "solar_radiation":  float(args.get("solar_radiation",  520.0)),
-            "temperature":      float(args.get("temperature",       28.5)),
-            "cloud_cover":      float(args.get("cloud_cover",       10.0)),
-            "humidity":         float(args.get("humidity",          50.0)),
+            "cloud_cover":      float(args.get("cloud_cover",        10.0)),
+            "ambient_temperature": float(args.get("ambient_temperature", args.get("temperature", 28.5))),
             "panel_temperature": panel_temp,
-            "voltage":           voltage,
-            "current":           current
+            "humidity":         float(args.get("humidity",          50.0)),
+            "ldr_value":        ldr_value,
+            "time_of_day":      float(args.get("time_of_day", datetime.now().hour + datetime.now().minute / 60.0))
         }
 
         # 3. Predict expected clean power via the ML model (or query override)
@@ -159,55 +161,50 @@ def api_prediction():
         else:
             expected_clean_power = predict_clean_power(features)
 
-        # 4. Resolve upcoming rain forecast (weather-aware recommendation)
-        # Check explicit query params first
-        rain_exp_param = args.get("rain_expected")
-        rain_prob_param = args.get("rain_probability")
+        # 4. Resolve precipitation only for the next four hours.
+        rain_exp_param = args.get("rain_expected_next_4h")
+        rain_prob_param = args.get("rain_probability_next_4h")
         loc_param = args.get("location")
-
-        rain_expected = None
-        rain_probability = 0.0
+        rain_expected_next_4h = None
+        rain_probability_next_4h = float(rain_prob_param or 0.0)
+        rain_next_4h_mm = float(args.get("rain_next_4h_mm", 0.0) or 0.0)
+        rain_forecast_24h_mm = 0.0
 
         if rain_exp_param is not None:
-            rain_expected = str(rain_exp_param).strip().lower() in ("true", "1", "yes")
+            rain_expected_next_4h = str(rain_exp_param).strip().lower() in ("true", "1", "yes")
 
-        if rain_prob_param is not None:
-            try:
-                rain_probability = float(rain_prob_param)
-            except (ValueError, TypeError):
-                rain_probability = 0.0
-
-        # If rain forecast is not explicitly overridden in params, check location
-        rain_forecast_24h_mm = float(args.get("rain_forecast_24h_mm", 0.0) or 0.0)
-        if rain_expected is None and loc_param:
+        if rain_expected_next_4h is None and loc_param:
             try:
                 w_data = get_weather_by_location(loc_param.strip()).get("weather", {})
-                rain_expected = w_data.get("rain_expected", False)
-                rain_probability = w_data.get("rain_probability", 0.0)
+                rain_expected_next_4h = w_data.get("rain_expected_next_4h", False)
+                rain_probability_next_4h = w_data.get("rain_probability_next_4h", 0.0)
+                rain_next_4h_mm = w_data.get("rain_next_4h_mm", 0.0)
                 rain_forecast_24h_mm = w_data.get("rain_forecast_24h_mm", 0.0)
             except Exception:
                 pass
 
-        # Fallback to default if no forecast data available
-        if rain_expected is None:
+        if rain_expected_next_4h is None:
             from weather_api import _LAST_WEATHER_CACHE
             cached_weather = _LAST_WEATHER_CACHE.get("weather", {})
-            rain_expected = cached_weather.get("rain_expected", False)
-            rain_probability = cached_weather.get("rain_probability", 0.0)
-            if not rain_forecast_24h_mm:
-                rain_forecast_24h_mm = cached_weather.get("rain_forecast_24h_mm", 0.0)
+            rain_expected_next_4h = cached_weather.get("rain_expected_next_4h", False)
+            rain_probability_next_4h = cached_weather.get("rain_probability_next_4h", 0.0)
+            rain_next_4h_mm = cached_weather.get("rain_next_4h_mm", 0.0)
+            rain_forecast_24h_mm = cached_weather.get("rain_forecast_24h_mm", 0.0)
 
         # 5. Compute soiling loss + financial metrics + cleaning recommendation
         result = calculate_soiling_loss(
             actual_power,
             expected_clean_power,
-            rain_expected=rain_expected,
-            rain_probability=rain_probability
+            rain_expected_next_4h=rain_expected_next_4h,
+            rain_probability_next_4h=rain_probability_next_4h,
+            rain_next_4h_mm=rain_next_4h_mm,
+            cloud_cover=features["cloud_cover"]
         )
 
         # 6. Attach sensor telemetry and rain forecast volume so dashboard can display live V / I / Rain readings
-        result["voltage"]               = round(voltage, 1)
+        result["voltage"]               = round(voltage, 2)
         result["current"]               = round(current, 2)
+        result["ldr_value"]             = round(ldr_value, 1)
         result["panel_temperature"]     = round(panel_temp, 1)
         result["sensor_source"]         = sensor_source
         result["rain_forecast_24h_mm"]  = round(float(rain_forecast_24h_mm or 0.0), 2)

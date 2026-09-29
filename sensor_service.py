@@ -15,7 +15,7 @@ from typing import Dict, Any
 class SensorDataSource:
     """
     Hardware abstraction layer for single-panel solar telemetry.
-    Produces voltage, current, panel_temperature, and computes actual_power.
+    Produces voltage, current, LDR/light level, panel temperature, and actual power.
     Can later be bound to MQTTIngestionService when ESP32 microcontrollers are connected.
     """
 
@@ -32,15 +32,29 @@ class SensorDataSource:
     def set_hardware_reading(self, reading: Dict[str, Any]):
         """Callback for MQTT listener when real ESP32 messages arrive."""
         self._hardware_connected = True
-        self._last_hardware_reading = reading
+        normalized = dict(reading)
+        normalized["voltage"] = float(normalized["voltage"])
+        normalized["current"] = float(normalized["current"])
+        normalized["panel_temperature"] = float(
+            normalized.get("panel_temperature", normalized.get("panel_temp", 0.0))
+        )
+        normalized["ldr_value"] = float(
+            normalized.get("ldr_value", normalized.get("ldr", normalized.get("light_level", 0.0)))
+        )
+        normalized["actual_power_w"] = round(normalized["voltage"] * normalized["current"], 1)
+        normalized["actual_power"] = normalized["actual_power_w"]
+        normalized["power"] = normalized["actual_power_w"]
+        normalized.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+        self._last_hardware_reading = normalized
 
     def get_current_reading(self) -> Dict[str, Any]:
         """
         Produces realistic panel telemetry with smooth physical dynamics:
         - voltage (V): nominal ~33.8V with realistic load & temperature oscillations
         - current (A): nominal ~4.5A with natural solar irradiance drift
+        - ldr_value: raw light-level indicator (not electrical power)
         - panel_temperature (°C): nominal ~42.5°C with thermal inertia
-        - actual_power (W) = voltage * current
+        - actual_power_w (W) = voltage * current
         """
         if self._hardware_connected and self._last_hardware_reading:
             reading = dict(self._last_hardware_reading)
@@ -60,7 +74,8 @@ class SensorDataSource:
         current = round(max(0.5, 4.55 + c_drift + c_jitter), 2)
 
         # Actual power derived from electrical formula P = V * I
-        actual_power = round(voltage * current, 1)
+        actual_power_w = round(voltage * current, 1)
+        ldr_value = int(max(0, min(4095, (current / 5.0) * 4095 + random.uniform(-80, 80))))
 
         # Panel temperature drifts smoothly
         t_drift = 0.5 * math.sin(elapsed / 25.0)
@@ -72,8 +87,10 @@ class SensorDataSource:
             "sensor_source": "Simulated",
             "voltage": voltage,
             "current": current,
+            "ldr_value": ldr_value,
             "panel_temperature": panel_temp,
-            "actual_power": actual_power,
+            "actual_power": actual_power_w,
+            "actual_power_w": actual_power_w,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 

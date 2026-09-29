@@ -326,18 +326,18 @@ function initWeatherWidget() {
 
         // Rich, dynamic rain values
         const curRain  = Number(weather.rainfall) || 0;
-        const rain24h  = Number(weather.rain_forecast_24h_mm) || 0;
-        const rainProb = Number(weather.rain_probability) || 0;
+        const rain4h   = Number(weather.rain_next_4h_mm) || 0;
+        const rainProb = Number(weather.rain_probability_next_4h) || 0;
 
         const displayRain = curRain > 0
             ? `${curRain.toFixed(1)} mm (Live)`
-            : (rain24h > 0 ? `${rain24h.toFixed(1)} mm (24h)` : "0.0 mm");
+            : (rain4h > 0 ? `${rain4h.toFixed(1)} mm (4h)` : "0.0 mm");
 
         const elWvRain = document.getElementById("wvRain");
         if (elWvRain) elWvRain.innerHTML = `${displayRain}`;
 
         setWeatherVal("wvRainProb",     rainProb.toFixed(0),          "%");
-        setWeatherVal("wvRainForecast", rain24h.toFixed(1),           "mm");
+        setWeatherVal("wvRainForecast", rain4h.toFixed(1),             "mm");
 
         // Update System Status badge
         const weatherApiStatus = document.getElementById("statusWeatherApi");
@@ -353,8 +353,9 @@ function initWeatherWidget() {
             humidity:             weather.humidity,
             cloud_cover:          weather.cloud_cover,
             location:             loc.name || requestedLocation,
-            rain_expected:        weather.rain_expected,
-            rain_probability:     weather.rain_probability,
+            rain_expected_next_4h: weather.rain_expected_next_4h,
+            rain_probability_next_4h: weather.rain_probability_next_4h,
+            rain_next_4h_mm:      weather.rain_next_4h_mm,
             rain_forecast_24h_mm: weather.rain_forecast_24h_mm
         };
 
@@ -436,9 +437,9 @@ function initPredictionPolling() {
             if (w.humidity             != null) params.append("humidity",             w.humidity);
             if (w.cloud_cover          != null) params.append("cloud_cover",          w.cloud_cover);
             if (w.location             != null) params.append("location",             w.location);
-            if (w.rain_expected        != null) params.append("rain_expected",        w.rain_expected);
-            if (w.rain_probability     != null) params.append("rain_probability",     w.rain_probability);
-            if (w.rain_forecast_24h_mm != null) params.append("rain_forecast_24h_mm", w.rain_forecast_24h_mm);
+            if (w.rain_expected_next_4h != null) params.append("rain_expected_next_4h", w.rain_expected_next_4h);
+            if (w.rain_probability_next_4h != null) params.append("rain_probability_next_4h", w.rain_probability_next_4h);
+            if (w.rain_next_4h_mm      != null) params.append("rain_next_4h_mm",      w.rain_next_4h_mm);
 
             const queryStr = params.toString();
             const url = queryStr ? `/api/prediction?${queryStr}` : `/api/prediction`;
@@ -467,7 +468,9 @@ function initPredictionPolling() {
         const lossPercent    = Number(data.soiling_loss_percent)   || 0;
         const powerLossW     = Number(data.power_loss_w)           || 0;
         const energyLossKwh  = Number(data.energy_loss_kwh)        || 0;
-        const costLossInr    = Number(data.estimated_cost_loss)    || 0;
+        const futureSavings  = Number(data.estimated_future_savings) || 0;
+        const cleaningCost   = Number(data.cleaning_cost) || 0;
+        const netBenefit     = Number(data.net_benefit) || 0;
         const cleaningStatus = data.cleaning_status                || "NORMAL";
         const sensorSource   = data.sensor_source                  || "Simulated";
 
@@ -488,7 +491,7 @@ function initPredictionPolling() {
         if (elSoiling)       elSoiling.textContent       = lossPercent.toFixed(1);
         if (elPowerLoss)     elPowerLoss.textContent     = powerLossW.toFixed(1);
         if (elEnergyLoss)    elEnergyLoss.textContent    = energyLossKwh.toFixed(2);
-        if (elFinancialLoss) elFinancialLoss.textContent = costLossInr.toFixed(2);
+        if (elFinancialLoss) elFinancialLoss.textContent = futureSavings.toFixed(2);
 
         if (data.voltage !== undefined && elVoltage)
             elVoltage.textContent = Number(data.voltage).toFixed(1);
@@ -556,25 +559,28 @@ function initPredictionPolling() {
 
         if (elInsightPowerLoss)  elInsightPowerLoss.textContent  = `${powerLossW.toFixed(1)} W`;
         if (elInsightEnergyLoss) elInsightEnergyLoss.textContent = `${energyLossKwh.toFixed(2)} kWh`;
-        if (elInsightCostLoss)   elInsightCostLoss.textContent   = `₹ ${costLossInr.toFixed(2)}`;
+        if (elInsightCostLoss)   elInsightCostLoss.textContent   = `₹ ${futureSavings.toFixed(2)}`;
+        const elFutureSavings = document.getElementById("valFutureSavings");
+        const elCleaningCost = document.getElementById("valCleaningCost");
+        const elNetBenefit = document.getElementById("valNetBenefit");
+        if (elFutureSavings) elFutureSavings.textContent = `₹ ${futureSavings.toFixed(2)}`;
+        if (elCleaningCost) elCleaningCost.textContent = `₹ ${cleaningCost.toFixed(2)}`;
+        if (elNetBenefit) elNetBenefit.textContent = `₹ ${netBenefit.toFixed(2)}`;
 
         // ── 6. Weather-Aware Cleaning Recommendation Card ───────────────────
-        const rainExpected  = (data.rain_expected !== undefined)
-            ? Boolean(data.rain_expected)
-            : Boolean(window._liveWeather && window._liveWeather.rain_expected);
+        const rainExpected  = (data.rain_expected_next_4h !== undefined)
+            ? Boolean(data.rain_expected_next_4h)
+            : Boolean(window._liveWeather && window._liveWeather.rain_expected_next_4h);
 
-        const rainProb      = (data.rain_probability !== undefined)
-            ? Number(data.rain_probability)
-            : Number(window._liveWeather && window._liveWeather.rain_probability) || 0;
+        const rainProb      = (data.rain_probability_next_4h !== undefined)
+            ? Number(data.rain_probability_next_4h)
+            : Number(window._liveWeather && window._liveWeather.rain_probability_next_4h) || 0;
 
-        const rainVol       = (data.rain_forecast_24h_mm !== undefined)
-            ? Number(data.rain_forecast_24h_mm)
-            : Number(window._liveWeather && window._liveWeather.rain_forecast_24h_mm) || 0;
+        const rainVol       = (data.rain_next_4h_mm !== undefined)
+            ? Number(data.rain_next_4h_mm)
+            : Number(window._liveWeather && window._liveWeather.rain_next_4h_mm) || 0;
 
-        const cleaningRec   = data.cleaning_recommendation ||
-            (lossPercent < 5.0 ? "NO CLEANING NEEDED" :
-            (lossPercent <= 15.0 ? "MONITOR" :
-            (rainExpected ? "WAIT FOR RAIN" : "CLEANING ADVISED")));
+        const cleaningRec   = data.cleaning_recommendation || "NO CLEANING NEEDED";
 
         const elRecCard     = document.getElementById("sectionCleaningRecommendation");
         const elRecBadge    = document.getElementById("valCleaningRecBadge");
@@ -592,6 +598,8 @@ function initPredictionPolling() {
                 elRecBadge.classList.add("status-pill-normal");
             } else if (cleaningRec === "MONITOR") {
                 elRecBadge.classList.add("status-pill-watch");
+            } else if (cleaningRec === "DO NOT CLEAN") {
+                elRecBadge.classList.add("status-pill-normal");
             } else if (cleaningRec === "WAIT FOR RAIN") {
                 elRecBadge.classList.add("status-pill-rain");
             } else {
@@ -601,7 +609,7 @@ function initPredictionPolling() {
 
         if (elRecCard) {
             elRecCard.classList.remove("rec-state-normal", "rec-state-watch", "rec-state-rain", "rec-state-advised");
-            if (cleaningRec === "NO CLEANING NEEDED") elRecCard.classList.add("rec-state-normal");
+            if (cleaningRec === "NO CLEANING NEEDED" || cleaningRec === "DO NOT CLEAN") elRecCard.classList.add("rec-state-normal");
             else if (cleaningRec === "MONITOR") elRecCard.classList.add("rec-state-watch");
             else if (cleaningRec === "WAIT FOR RAIN") elRecCard.classList.add("rec-state-rain");
             else elRecCard.classList.add("rec-state-advised");
@@ -609,7 +617,7 @@ function initPredictionPolling() {
 
         if (elRecBanner) {
             elRecBanner.className = "rec-banner ";
-            if (cleaningRec === "NO CLEANING NEEDED") elRecBanner.classList.add("rec-banner-normal");
+            if (cleaningRec === "NO CLEANING NEEDED" || cleaningRec === "DO NOT CLEAN") elRecBanner.classList.add("rec-banner-normal");
             else if (cleaningRec === "MONITOR") elRecBanner.classList.add("rec-banner-watch");
             else if (cleaningRec === "WAIT FOR RAIN") elRecBanner.classList.add("rec-banner-rain");
             else elRecBanner.classList.add("rec-banner-advised");
@@ -619,6 +627,7 @@ function initPredictionPolling() {
 
         if (elRecIcon) {
             if (cleaningRec === "NO CLEANING NEEDED") elRecIcon.textContent = "✨";
+            else if (cleaningRec === "DO NOT CLEAN") elRecIcon.textContent = "⏸️";
             else if (cleaningRec === "MONITOR") elRecIcon.textContent = "👁️";
             else if (cleaningRec === "WAIT FOR RAIN") elRecIcon.textContent = "🌧️";
             else elRecIcon.textContent = "🧹";
@@ -626,13 +635,13 @@ function initPredictionPolling() {
 
         if (elRecDesc) {
             if (cleaningRec === "NO CLEANING NEEDED") {
-                elRecDesc.textContent = "Soiling is low (<5%). Clean panel is operating at peak yield.";
-            } else if (cleaningRec === "MONITOR") {
-                elRecDesc.textContent = "Moderate soiling (5–15%). Monitor output degradation before scheduling maintenance.";
+                elRecDesc.textContent = "Actual power meets or exceeds expected clean power.";
+            } else if (cleaningRec === "DO NOT CLEAN") {
+                elRecDesc.textContent = "Expected future electricity savings do not exceed the automated cleaning cost.";
             } else if (cleaningRec === "WAIT FOR RAIN") {
-                elRecDesc.textContent = `Rain expected within 24h (~${rainVol.toFixed(1)} mm, ${rainProb.toFixed(0)}% chance). Natural washing will restore efficiency — save water & labor cost.`;
+                elRecDesc.textContent = `Meaningful rain expected within 4h (~${rainVol.toFixed(1)} mm, ${rainProb.toFixed(0)}% chance).`;
             } else {
-                elRecDesc.textContent = "Heavy soiling (>15%) and no rain forecast in next 24h. Manual cleaning recommended.";
+                elRecDesc.textContent = "No meaningful rain is expected in the next 4h and future savings exceed automated cleaning cost.";
             }
         }
 

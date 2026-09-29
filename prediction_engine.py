@@ -15,12 +15,12 @@ def calculate_expected_power(irradiance: float, temp_c: float, rated_capacity_w:
     """Wrapper using ML model for expected clean power."""
     input_data = {
         "solar_radiation": irradiance,
-        "temperature": temp_c,
-        "cloud_cover": 15.0,
-        "humidity": 50.0,
+        "ambient_temperature": temp_c,
         "panel_temperature": temp_c + (irradiance / 1000.0) * 15.0,
-        "voltage": 34.0,
-        "current": (rated_capacity_w * (irradiance / 1000.0)) / 34.0
+        "humidity": 50.0,
+        "ldr_value": max(0.0, min(4095.0, irradiance / 1100.0 * 4095.0)),
+        "cloud_cover": 15.0,
+        "time_of_day": 12.0
     }
     return predict_clean_power(input_data)
 

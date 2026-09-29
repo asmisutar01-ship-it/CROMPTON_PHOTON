@@ -170,14 +170,31 @@ def get_weather(latitude: float, longitude: float) -> dict:
 
     next_24_precip = precip_list[start_idx : start_idx + 24] if precip_list else []
     next_24_prob   = prob_list[start_idx : start_idx + 24] if prob_list else []
+    next_4_precip = precip_list[start_idx : start_idx + 4] if precip_list else []
+    next_4_prob = prob_list[start_idx : start_idx + 4] if prob_list else []
 
     max_prob   = float(max(next_24_prob)) if next_24_prob else 0.0
     sum_precip = float(sum(next_24_precip)) if next_24_precip else 0.0
+    rain_probability_next_4h = float(max(next_4_prob)) if next_4_prob else 0.0
+    rain_next_4h_mm = float(sum(next_4_precip)) if next_4_precip else 0.0
+
+    try:
+        rain_probability_threshold = float(os.getenv("RAIN_PROBABILITY_THRESHOLD", "35"))
+    except ValueError:
+        rain_probability_threshold = 35.0
+    try:
+        rain_precipitation_threshold = float(os.getenv("RAIN_PRECIPITATION_THRESHOLD_MM", "0.5"))
+    except ValueError:
+        rain_precipitation_threshold = 0.5
 
     # Rain expected within 24 hours if highest precipitation probability >= 35%
     # or total forecast rainfall over 24h >= 0.5 mm
     rain_expected = bool((max_prob >= 35.0) or (sum_precip >= 0.5))
     rain_probability = round(max_prob, 1)
+    rain_expected_next_4h = bool(
+        rain_probability_next_4h >= rain_probability_threshold
+        or rain_next_4h_mm >= rain_precipitation_threshold
+    )
 
     # Dynamic rain summary note
     if rain_expected:
@@ -197,6 +214,14 @@ def get_weather(latitude: float, longitude: float) -> dict:
         "rain_expected":        rain_expected,
         "rain_probability":     rain_probability,
         "rain_forecast_24h_mm": round(sum_precip, 2),
+        "rain_expected_next_4h": rain_expected_next_4h,
+        "rain_probability_next_4h": round(rain_probability_next_4h, 1),
+        "rain_next_4h_mm": round(rain_next_4h_mm, 2),
+        "rain_note_next_4h": (
+            f"Rain expected in next 4h (~{round(rain_next_4h_mm, 1)} mm, "
+            f"{int(rain_probability_next_4h)}% chance)"
+            if rain_expected_next_4h else "No meaningful rain forecast in next 4h"
+        ),
         "rain_note":            rain_note,
         "_units": {
             "temperature":          units.get("temperature_2m", "°C"),
@@ -209,6 +234,8 @@ def get_weather(latitude: float, longitude: float) -> dict:
             "wind_speed":           units.get("wind_speed_10m", "km/h"),
             "rain_forecast_24h_mm": "mm",
             "rain_probability":     "%",
+            "rain_next_4h_mm":      "mm",
+            "rain_probability_next_4h": "%",
         }
     }
     return result
@@ -231,7 +258,8 @@ def get_weather_by_location(location: str) -> dict:
             "location": { "name", "latitude", "longitude", "country", "admin1" },
             "weather":  { "temperature", "humidity", "solar_radiation",
                           "cloud_cover", "rainfall", "wind_speed",
-                          "rain_expected", "rain_probability", "rain_forecast_24h_mm" }
+                          "rain_expected", "rain_probability", "rain_forecast_24h_mm",
+                          "rain_expected_next_4h", "rain_probability_next_4h", "rain_next_4h_mm" }
         }
 
     Propagates ValueError / LookupError / RuntimeError to the caller.

@@ -7,6 +7,12 @@ Note: MQTT client connection and payload handlers will be added in upcoming step
 """
 
 import os
+import json
+import logging
+
+from sensor_service import sensor_service
+
+logger = logging.getLogger("crompton.mqtt_ingestion")
 
 class MQTTIngestionService:
     """Manager class for MQTT broker connection and telemetry listener."""
@@ -30,5 +36,11 @@ class MQTTIngestionService:
             print("[MQTT] Disconnected from broker.")
 
     def on_message(self, client, userdata, message):
-        """Placeholder for handling incoming sensor messages."""
-        pass
+        """Decode an ESP32 JSON payload and forward its sensor values."""
+        try:
+            payload = json.loads(message.payload.decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("MQTT telemetry payload must be a JSON object.")
+            sensor_service.set_hardware_reading(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as error:
+            logger.warning("Ignoring invalid MQTT sensor payload: %s", error)

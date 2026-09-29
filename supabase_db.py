@@ -65,7 +65,8 @@ class SupabaseDB:
         Expected fields:
             - voltage (float)
             - current (float)
-            - power (float, calculated if absent)
+            - actual_power_w (float, always calculated from voltage × current)
+            - ldr_value (float, raw light-level indicator)
             - panel_temperature (float, optional)
             - node_id (str, optional, defaults to 'CR-SOLAR-001')
             - timestamp (isoformat str, optional, defaults to utcnow)
@@ -74,7 +75,7 @@ class SupabaseDB:
 
         voltage = float(reading_data.get("voltage", 0.0))
         current = float(reading_data.get("current", 0.0))
-        power = float(reading_data.get("power", round(voltage * current, 2)))
+        actual_power_w = round(voltage * current, 2)
         panel_temp = reading_data.get("panel_temperature")
         if panel_temp is not None:
             panel_temp = float(panel_temp)
@@ -84,7 +85,9 @@ class SupabaseDB:
             "node_id": str(reading_data.get("node_id", "CR-SOLAR-001")),
             "voltage": round(voltage, 2),
             "current": round(current, 3),
-            "power": round(power, 2),
+            "power": actual_power_w,
+            "actual_power_w": actual_power_w,
+            "ldr_value": float(reading_data["ldr_value"]) if reading_data.get("ldr_value") is not None else None,
             "panel_temperature": round(panel_temp, 2) if panel_temp is not None else None,
         }
 
@@ -120,11 +123,15 @@ class SupabaseDB:
         payload = {
             "timestamp": weather_data.get("timestamp") or datetime.now(timezone.utc).isoformat(),
             "temperature": float(weather_data["temperature"]) if weather_data.get("temperature") is not None else None,
+            "ambient_temperature": float(weather_data.get("ambient_temperature", weather_data.get("temperature"))) if weather_data.get("ambient_temperature", weather_data.get("temperature")) is not None else None,
             "humidity": float(weather_data["humidity"]) if weather_data.get("humidity") is not None else None,
             "solar_radiation": float(weather_data["solar_radiation"]) if weather_data.get("solar_radiation") is not None else None,
             "cloud_cover": float(weather_data["cloud_cover"]) if weather_data.get("cloud_cover") is not None else None,
             "rainfall": float(weather_data["rainfall"]) if weather_data.get("rainfall") is not None else 0.0,
             "wind_speed": float(weather_data["wind_speed"]) if weather_data.get("wind_speed") is not None else None,
+            "rain_expected_next_4h": bool(weather_data.get("rain_expected_next_4h", False)),
+            "rain_probability_next_4h": float(weather_data.get("rain_probability_next_4h", 0.0) or 0.0),
+            "rain_next_4h_mm": float(weather_data.get("rain_next_4h_mm", 0.0) or 0.0),
         }
 
         response = client.table("weather_readings").insert(payload).execute()
@@ -155,12 +162,22 @@ class SupabaseDB:
 
         payload = {
             "timestamp": prediction_data.get("timestamp") or datetime.now(timezone.utc).isoformat(),
-            "expected_power": round(float(prediction_data.get("expected_power", 0.0)), 2),
-            "actual_power": round(float(prediction_data.get("actual_power", 0.0)), 2),
+            "expected_power": round(float(prediction_data.get("expected_power", prediction_data.get("expected_clean_power", 0.0))), 2),
+            "actual_power": round(float(prediction_data.get("actual_power", prediction_data.get("actual_power_w", 0.0))), 2),
             "soiling_loss_percent": round(float(prediction_data.get("soiling_loss_percent", 0.0)), 2),
             "energy_loss": round(float(prediction_data.get("energy_loss", 0.0)), 3),
             "estimated_cost_loss": round(float(prediction_data.get("estimated_cost_loss", 0.0)), 2),
             "cleaning_status": str(prediction_data.get("cleaning_status", "NORMAL")),
+            "expected_clean_power": round(float(prediction_data.get("expected_clean_power", prediction_data.get("expected_power", 0.0))), 2),
+            "actual_power_w": round(float(prediction_data.get("actual_power_w", prediction_data.get("actual_power", 0.0))), 2),
+            "power_loss_w": round(float(prediction_data.get("power_loss_w", 0.0)), 2),
+            "rain_expected": bool(prediction_data.get("rain_expected_next_4h", prediction_data.get("rain_expected", False))),
+            "rain_probability": round(float(prediction_data.get("rain_probability_next_4h", prediction_data.get("rain_probability", 0.0)) or 0.0), 2),
+            "cleaning_cost": round(float(prediction_data.get("cleaning_cost", 0.0)), 2),
+            "estimated_future_savings": round(float(prediction_data.get("estimated_future_savings", prediction_data.get("estimated_cost_loss", 0.0))), 2),
+            "net_benefit": round(float(prediction_data.get("net_benefit", 0.0)), 2),
+            "cleaning_recommendation": str(prediction_data.get("cleaning_recommendation", "NO CLEANING NEEDED")),
+            "model_version": str(prediction_data.get("model_version", "rf-clean-power-v3")),
         }
 
         response = client.table("predictions").insert(payload).execute()
