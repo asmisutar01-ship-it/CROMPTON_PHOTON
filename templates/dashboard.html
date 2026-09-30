@@ -49,7 +49,7 @@
                 </div>
                 <div class="panel-chip">
                     <span class="panel-id">{{ metrics.panel_info.panel_id }}</span>
-                    <span class="panel-rating">{{ metrics.panel_info.rated_capacity_w }}W Mono</span>
+                    <span class="panel-rating">{{ metrics.panel_info.rated_capacity_w|default(3) }}W Prototype</span>
                 </div>
             </div>
         </div>
@@ -65,11 +65,11 @@
                     <span class="kpi-tag tag-live" id="actualPowerTag">Live</span>
                 </div>
                 <div class="kpi-value-row">
-                    <span class="kpi-value" id="valActualPower">{{ metrics.power_metrics.actual_power_w }}</span>
-                    <span class="kpi-unit">W</span>
+                    <span class="kpi-value" id="valActualPower">{{ metrics.power_metrics.actual_power_mw }}</span>
+                    <span class="kpi-unit">mW</span>
                 </div>
                 <div class="kpi-footer">
-                    <span>V: <span id="valPanelVoltage" class="font-mono">{{ metrics.power_metrics.panel_voltage_v }}</span>V | I: <span id="valPanelCurrent" class="font-mono">{{ metrics.power_metrics.panel_current_a }}</span>A</span>
+                    <span>V: <span id="valPanelVoltage" class="font-mono">{{ metrics.power_metrics.panel_voltage_v }}</span>V | I: <span id="valPanelCurrent" class="font-mono">{{ metrics.power_metrics.panel_current_ma }}</span>mA</span>
                 </div>
             </div>
 
@@ -80,11 +80,11 @@
                     <span class="kpi-tag tag-model">STC Ref</span>
                 </div>
                 <div class="kpi-value-row">
-                    <span class="kpi-value" id="valExpectedPower">{{ metrics.power_metrics.expected_clean_power_w }}</span>
-                    <span class="kpi-unit">W</span>
+                    <span class="kpi-value" id="valExpectedPower">{{ metrics.power_metrics.expected_clean_power_mw }}</span>
+                    <span class="kpi-unit">mW</span>
                 </div>
                 <div class="kpi-footer">
-                    <span>Irradiance: {{ metrics.weather_conditions.solar_irradiance_wm2 }} W/m²</span>
+                    <span>Irradiance: <span id="valEffectiveIrradiance">{{ metrics.weather_conditions.solar_irradiance_wm2 }}</span> W/m² <span id="valIrradianceSource" class="badge-source">(Weather)</span></span>
                 </div>
             </div>
 
@@ -99,7 +99,7 @@
                     <span class="kpi-unit">%</span>
                 </div>
                 <div class="kpi-footer">
-                    <span>Power Loss: <strong id="valPowerLoss" class="font-mono">37.4</strong> W</span>
+                    <span>Power Loss: <strong id="valPowerLoss" class="font-mono">{{ metrics.power_metrics.power_loss_mw }}</strong> mW</span>
                 </div>
             </div>
 
@@ -189,9 +189,9 @@
                     <div class="card-header">
                         <div>
                             <h2 class="card-title">Recent Readings</h2>
-                            <p class="card-subtitle">Continuous single-panel telemetry log (dummy dataset)</p>
+                            <p class="card-subtitle">Continuous single-panel telemetry log (ESP32 Hardware & Supabase)</p>
                         </div>
-                        <span class="badge-pill">6 Cycles Logged</span>
+                        <span class="badge-pill" id="badgeCyclesLogged">{{ metrics.recent_readings|length }} Cycles Logged</span>
                     </div>
                     <div class="table-responsive">
                         <table class="data-table">
@@ -201,8 +201,8 @@
                                     <th>Irradiance (W/m²)</th>
                                     <th>Ambient (°C)</th>
                                     <th>Panel Temp (°C)</th>
-                                    <th>Actual (W)</th>
-                                    <th>Expected (W)</th>
+                                    <th>Actual (mW)</th>
+                                    <th>Expected (mW)</th>
                                     <th>Soiling Loss</th>
                                     <th>Condition</th>
                                 </tr>
@@ -214,8 +214,8 @@
                                     <td>{{ r.irradiance }}</td>
                                     <td>{{ r.ambient_temp }}°</td>
                                     <td>{{ r.panel_temp }}°</td>
-                                    <td class="power-cell font-mono">{{ r.actual_power }} W</td>
-                                    <td class="clean-cell font-mono">{{ r.expected_power }} W</td>
+                                    <td class="power-cell font-mono">{{ r.actual_power }} mW</td>
+                                    <td class="clean-cell font-mono">{{ r.expected_power }} mW</td>
                                     <td class="loss-cell font-mono">{{ r.loss_percent }}%</td>
                                     <td><span class="status-badge-chip badge-soiled">{{ r.status }}</span></td>
                                 </tr>
@@ -244,22 +244,22 @@
                         <div class="power-comparison-visual" id="powerComparisonVisual">
                             <div class="comparison-visual-header">
                                 <span class="visual-title">Actual vs Expected Clean Power</span>
-                                <span class="visual-ratio font-mono" id="valVisualRatio">79.5% clean power</span>
+                                <span class="visual-ratio font-mono" id="valVisualRatio">77.6% clean power</span>
                             </div>
                             <div class="visual-dual-bar">
                                 <div class="visual-bar-row">
                                     <span class="visual-bar-label">Actual Power</span>
                                     <div class="visual-bar-track">
-                                        <div class="visual-bar-fill actual-bar" id="barActualFill" style="width: 79.5%;"></div>
+                                        <div class="visual-bar-fill actual-bar" id="barActualFill" style="width: 77.6%;"></div>
                                     </div>
-                                    <span class="visual-bar-val font-mono" id="barActualVal">145.2 W</span>
+                                    <span class="visual-bar-val font-mono" id="barActualVal">15.4 mW</span>
                                 </div>
                                 <div class="visual-bar-row">
                                     <span class="visual-bar-label">Expected Clean</span>
                                     <div class="visual-bar-track">
                                         <div class="visual-bar-fill clean-bar" id="barCleanFill" style="width: 100%;"></div>
                                     </div>
-                                    <span class="visual-bar-val font-mono" id="barCleanVal">182.6 W</span>
+                                    <span class="visual-bar-val font-mono" id="barCleanVal">19.8 mW</span>
                                 </div>
                             </div>
                         </div>
@@ -267,7 +267,7 @@
                         <div class="insight-metric-box">
                             <div class="insight-stat">
                                 <span class="stat-label">Power Loss (Deficit)</span>
-                                <span class="stat-val font-mono" id="valInsightPowerLoss">37.4 W</span>
+                                <span class="stat-val font-mono" id="valInsightPowerLoss">4.4 mW</span>
                             </div>
                             <div class="insight-stat">
                                 <span class="stat-label">Estimated Energy Loss</span>
@@ -438,11 +438,11 @@
                         </li>
                         <li>
                             <span class="meta-label">MQTT Ingestion</span>
-                            <span class="meta-val muted-text">Pending Integration</span>
+                            <span class="meta-val healthy-text" id="statusMqtt">{{ metrics.system_status.mqtt_status or 'Connected (herframe/solar_demo/sensors)' }}</span>
                         </li>
                         <li>
                             <span class="meta-label">Telemetry Ingestion</span>
-                            <span class="meta-val">Mock Simulation</span>
+                            <span class="meta-val healthy-text" id="statusTelemetry">{{ metrics.system_status.telemetry_source or 'ESP32 Hardware' }}</span>
                         </li>
                         <li>
                             <span class="meta-label">Last Timestamp</span>

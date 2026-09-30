@@ -23,8 +23,8 @@ function initPowerComparisonChart() {
 
     let chartData = {
         labels: ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"],
-        expected_power_w: [0, 45, 120, 210, 290, 340, 360, 350, 310, 240, 160, 60, 0],
-        actual_power_w: [0, 32, 88, 155, 218, 260, 275, 268, 235, 182, 120, 42, 0]
+        expected_power_mw: [0.0, 337.5, 900.0, 1575.0, 2175.0, 2550.0, 2700.0, 2625.0, 2325.0, 1800.0, 1200.0, 450.0, 0.0],
+        actual_power_mw: [0.0, 237.5, 662.5, 1162.5, 1637.5, 1950.0, 2062.5, 2012.5, 1762.5, 1362.5, 900.0, 312.5, 0.0]
     };
 
     // Attempt to parse embedded backend initial data
@@ -32,8 +32,14 @@ function initPowerComparisonChart() {
         const rawJsonEl = document.getElementById("initialChartData");
         if (rawJsonEl && rawJsonEl.textContent.trim()) {
             const parsed = JSON.parse(rawJsonEl.textContent);
-            if (parsed.labels && parsed.expected_power_w && parsed.actual_power_w) {
-                chartData = parsed;
+            const expData = parsed.expected_power_mw || parsed.expected_power_w;
+            const actData = parsed.actual_power_mw || parsed.actual_power_w;
+            if (parsed.labels && expData && actData) {
+                chartData = {
+                    labels: parsed.labels,
+                    expected_power_mw: expData,
+                    actual_power_mw: actData
+                };
             }
         }
     } catch (e) {
@@ -57,8 +63,8 @@ function initPowerComparisonChart() {
             labels: chartData.labels,
             datasets: [
                 {
-                    label: "Expected Clean Power (W)",
-                    data: chartData.expected_power_w,
+                    label: "Expected Clean Power (mW)",
+                    data: chartData.expected_power_mw,
                     borderColor: "#10b981",
                     backgroundColor: cleanGradient,
                     borderWidth: 2.5,
@@ -70,8 +76,8 @@ function initPowerComparisonChart() {
                     pointHoverRadius: 6
                 },
                 {
-                    label: "Actual Soiled Power (W)",
-                    data: chartData.actual_power_w,
+                    label: "Actual Soiled Power (mW)",
+                    data: chartData.actual_power_mw,
                     borderColor: "#f59e0b",
                     backgroundColor: actualGradient,
                     borderWidth: 3,
@@ -104,7 +110,7 @@ function initPowerComparisonChart() {
                     displayColors: true,
                     callbacks: {
                         label: function(context) {
-                            return `${context.dataset.label}: ${context.parsed.y} W`;
+                            return `${context.dataset.label}: ${context.parsed.y} mW`;
                         },
                         afterBody: function(tooltipItems) {
                             if (tooltipItems.length >= 2) {
@@ -112,7 +118,7 @@ function initPowerComparisonChart() {
                                 const actual = tooltipItems[1].parsed.y;
                                 const diff = clean - actual;
                                 const lossPct = clean > 0 ? ((diff / clean) * 100).toFixed(1) : 0;
-                                return `\nSoiling Loss Deficit: ${diff.toFixed(1)} W (-${lossPct}%)`;
+                                return `\nSoiling Loss Deficit: ${diff.toFixed(2)} mW (-${lossPct}%)`;
                             }
                             return "";
                         }
@@ -132,7 +138,7 @@ function initPowerComparisonChart() {
                 },
                 y: {
                     beginAtZero: true,
-                    max: 420,
+                    suggestedMax: 3200,
                     grid: {
                         color: "rgba(255, 255, 255, 0.05)",
                         borderColor: "rgba(255, 255, 255, 0.1)"
@@ -141,7 +147,7 @@ function initPowerComparisonChart() {
                         color: "#94a3b8",
                         font: { family: "'Space Grotesk', monospace", size: 11 },
                         callback: function(val) {
-                            return val + " W";
+                            return val >= 1000 ? (val / 1000).toFixed(1) + " W" : val + " mW";
                         }
                     }
                 }
@@ -178,6 +184,11 @@ function initHealthPingButton() {
             if (statusSupabase && data.database) {
                 statusSupabase.textContent = "Connected";
                 statusSupabase.className = "meta-val healthy-text";
+            }
+            const statusMqtt = document.getElementById("statusMqtt");
+            if (statusMqtt && data.mqtt) {
+                statusMqtt.textContent = data.mqtt;
+                statusMqtt.className = data.mqtt.includes("Connected") ? "meta-val healthy-text" : "meta-val muted-text";
             }
             if (statusBadge) {
                 statusBadge.textContent = "Backend Verified";
@@ -486,17 +497,32 @@ function initPredictionPolling() {
         const elVoltage       = document.getElementById("valPanelVoltage");
         const elCurrent       = document.getElementById("valPanelCurrent");
 
-        if (elActual)        elActual.textContent        = actualPower.toFixed(1);
-        if (elExpected)      elExpected.textContent      = cleanPower.toFixed(1);
+        if (elActual)        elActual.textContent        = actualPower.toFixed(2);
+        if (elExpected)      elExpected.textContent      = cleanPower.toFixed(2);
         if (elSoiling)       elSoiling.textContent       = lossPercent.toFixed(1);
-        if (elPowerLoss)     elPowerLoss.textContent     = powerLossW.toFixed(1);
-        if (elEnergyLoss)    elEnergyLoss.textContent    = energyLossKwh.toFixed(2);
-        if (elFinancialLoss) elFinancialLoss.textContent = futureSavings.toFixed(2);
+        if (elPowerLoss)     elPowerLoss.textContent     = powerLossW.toFixed(2);
+        if (elEnergyLoss)    elEnergyLoss.textContent    = energyLossKwh.toFixed(4);
+        if (elFinancialLoss) elFinancialLoss.textContent = futureSavings.toFixed(4);
 
         if (data.voltage !== undefined && elVoltage)
             elVoltage.textContent = Number(data.voltage).toFixed(1);
         if (data.current !== undefined && elCurrent)
             elCurrent.textContent = Number(data.current).toFixed(2);
+
+        // Render dynamic effective solar irradiance and source
+        const elEffIrrad = document.getElementById("valEffectiveIrradiance");
+        const elIrradSrc = document.getElementById("valIrradianceSource");
+        if (elEffIrrad && data.effective_solar_radiation !== undefined) {
+            elEffIrrad.textContent = Number(data.effective_solar_radiation).toFixed(1);
+        }
+        if (elIrradSrc && data.irradiance_source) {
+            const srcMap = {
+                "LDR_CALIBRATED": "(LDR Calibrated)",
+                "WEATHER_API": "(Weather API)",
+                "WEATHER_API_FLAGGED": "(Weather Flagged)"
+            };
+            elIrradSrc.textContent = srcMap[data.irradiance_source] || `(${data.irradiance_source})`;
+        }
 
         if (elKpiCleaningTag) elKpiCleaningTag.textContent = cleaningStatus;
 
@@ -507,7 +533,23 @@ function initPredictionPolling() {
             elSensorLabel.textContent = `Sensor: ${sensorSource}`;
         }
         if (elSensorChip) {
-            elSensorChip.classList.toggle("hardware", sensorSource === "Hardware");
+            elSensorChip.classList.toggle("hardware", sensorSource.toLowerCase().includes("hardware"));
+        }
+
+        // ── 2b. System status updates ───────────────────────────────────────
+        const elStatusMqtt = document.getElementById("statusMqtt");
+        if (elStatusMqtt && data.mqtt_status) {
+            elStatusMqtt.textContent = data.mqtt_status;
+            elStatusMqtt.className = data.mqtt_status.includes("Connected") ? "meta-val healthy-text" : "meta-val muted-text";
+        }
+        const elStatusTelemetry = document.getElementById("statusTelemetry");
+        if (elStatusTelemetry && data.sensor_source) {
+            elStatusTelemetry.textContent = data.sensor_source;
+            elStatusTelemetry.className = data.sensor_source.toLowerCase().includes("hardware") ? "meta-val healthy-text" : "meta-val";
+        }
+        const elLastTs = document.getElementById("statusLastTimestamp");
+        if (elLastTs) {
+            elLastTs.textContent = new Date().toLocaleTimeString();
         }
 
         // ── 3. AI Insight / Cleaning Status pill styling ───────────────────
@@ -519,6 +561,8 @@ function initPredictionPolling() {
                 elCleaningStatus.classList.add("status-pill-normal");
             } else if (cleaningStatus === "WATCH") {
                 elCleaningStatus.classList.add("status-pill-watch");
+            } else if (cleaningStatus === "WARNING") {
+                elCleaningStatus.classList.add("status-pill-mismatch");
             } else {
                 elCleaningStatus.classList.add("status-pill-advised");
             }
@@ -528,7 +572,7 @@ function initPredictionPolling() {
             elCardSoiling.classList.remove("warning", "danger", "healthy");
             if (cleaningStatus === "NORMAL") {
                 elCardSoiling.classList.add("healthy");
-            } else if (cleaningStatus === "WATCH") {
+            } else if (cleaningStatus === "WATCH" || cleaningStatus === "WARNING") {
                 elCardSoiling.classList.add("warning");
             } else {
                 elCardSoiling.classList.add("warning");
@@ -549,17 +593,17 @@ function initPredictionPolling() {
         if (elVisualRatio)   elVisualRatio.textContent  = `${ratio.toFixed(1)}% clean power`;
         if (elBarActualFill) elBarActualFill.style.width = `${ratio.toFixed(1)}%`;
         if (elBarCleanFill)  elBarCleanFill.style.width  = "100%";
-        if (elBarActualVal)  elBarActualVal.textContent  = `${actualPower.toFixed(1)} W`;
-        if (elBarCleanVal)   elBarCleanVal.textContent   = `${cleanPower.toFixed(1)} W`;
+        if (elBarActualVal)  elBarActualVal.textContent  = `${actualPower.toFixed(2)} mW`;
+        if (elBarCleanVal)   elBarCleanVal.textContent   = `${cleanPower.toFixed(2)} mW`;
 
         // ── 5. Insight Metric Box values ───────────────────────────────────
         const elInsightPowerLoss  = document.getElementById("valInsightPowerLoss");
         const elInsightEnergyLoss = document.getElementById("valInsightEnergyLoss");
         const elInsightCostLoss   = document.getElementById("valInsightCostLoss");
 
-        if (elInsightPowerLoss)  elInsightPowerLoss.textContent  = `${powerLossW.toFixed(1)} W`;
-        if (elInsightEnergyLoss) elInsightEnergyLoss.textContent = `${energyLossKwh.toFixed(2)} kWh`;
-        if (elInsightCostLoss)   elInsightCostLoss.textContent   = `₹ ${futureSavings.toFixed(2)}`;
+        if (elInsightPowerLoss)  elInsightPowerLoss.textContent  = `${powerLossW.toFixed(2)} mW`;
+        if (elInsightEnergyLoss) elInsightEnergyLoss.textContent = `${energyLossKwh.toFixed(4)} kWh`;
+        if (elInsightCostLoss)   elInsightCostLoss.textContent   = `₹ ${futureSavings.toFixed(4)}`;
         const elFutureSavings = document.getElementById("valFutureSavings");
         const elCleaningCost = document.getElementById("valCleaningCost");
         const elNetBenefit = document.getElementById("valNetBenefit");
@@ -602,16 +646,19 @@ function initPredictionPolling() {
                 elRecBadge.classList.add("status-pill-normal");
             } else if (cleaningRec === "WAIT FOR RAIN") {
                 elRecBadge.classList.add("status-pill-rain");
+            } else if (cleaningRec === "MODEL/IRRADIANCE MISMATCH") {
+                elRecBadge.classList.add("status-pill-mismatch");
             } else {
                 elRecBadge.classList.add("status-pill-advised");
             }
         }
 
         if (elRecCard) {
-            elRecCard.classList.remove("rec-state-normal", "rec-state-watch", "rec-state-rain", "rec-state-advised");
+            elRecCard.classList.remove("rec-state-normal", "rec-state-watch", "rec-state-rain", "rec-state-advised", "rec-state-mismatch");
             if (cleaningRec === "NO CLEANING NEEDED" || cleaningRec === "DO NOT CLEAN") elRecCard.classList.add("rec-state-normal");
             else if (cleaningRec === "MONITOR") elRecCard.classList.add("rec-state-watch");
             else if (cleaningRec === "WAIT FOR RAIN") elRecCard.classList.add("rec-state-rain");
+            else if (cleaningRec === "MODEL/IRRADIANCE MISMATCH") elRecCard.classList.add("rec-state-mismatch");
             else elRecCard.classList.add("rec-state-advised");
         }
 
@@ -620,6 +667,7 @@ function initPredictionPolling() {
             if (cleaningRec === "NO CLEANING NEEDED" || cleaningRec === "DO NOT CLEAN") elRecBanner.classList.add("rec-banner-normal");
             else if (cleaningRec === "MONITOR") elRecBanner.classList.add("rec-banner-watch");
             else if (cleaningRec === "WAIT FOR RAIN") elRecBanner.classList.add("rec-banner-rain");
+            else if (cleaningRec === "MODEL/IRRADIANCE MISMATCH") elRecBanner.classList.add("rec-banner-mismatch");
             else elRecBanner.classList.add("rec-banner-advised");
         }
 
@@ -630,11 +678,14 @@ function initPredictionPolling() {
             else if (cleaningRec === "DO NOT CLEAN") elRecIcon.textContent = "⏸️";
             else if (cleaningRec === "MONITOR") elRecIcon.textContent = "👁️";
             else if (cleaningRec === "WAIT FOR RAIN") elRecIcon.textContent = "🌧️";
+            else if (cleaningRec === "MODEL/IRRADIANCE MISMATCH") elRecIcon.textContent = "⚠️";
             else elRecIcon.textContent = "🧹";
         }
 
         if (elRecDesc) {
-            if (cleaningRec === "NO CLEANING NEEDED") {
+            if (data.diagnostic_warning) {
+                elRecDesc.textContent = data.diagnostic_warning;
+            } else if (cleaningRec === "NO CLEANING NEEDED") {
                 elRecDesc.textContent = "Actual power meets or exceeds expected clean power.";
             } else if (cleaningRec === "DO NOT CLEAN") {
                 elRecDesc.textContent = "Expected future electricity savings do not exceed the automated cleaning cost.";
@@ -669,6 +720,34 @@ function initPredictionPolling() {
                 chart.data.datasets[1].data[idx] = Math.round(actualPower);
                 chart.data.datasets[0].data[idx] = Math.round(cleanPower);
                 chart.update("none"); // silent update (no animation) for smooth live feel
+            }
+        }
+
+        // ── 8. Update Recent Readings Table from Live Database Telemetry ───
+        if (Array.isArray(data.recent_readings) && data.recent_readings.length > 0) {
+            const tableBody = document.getElementById("recentReadingsBody");
+            if (tableBody) {
+                tableBody.innerHTML = data.recent_readings.map(r => {
+                    const lossNum = Number(r.loss_percent) || 0;
+                    let badgeClass = "badge-soiled";
+                    if (lossNum < 5.0) badgeClass = "badge-clean";
+                    else if (lossNum < 15.0) badgeClass = "badge-watch";
+
+                    return `<tr>
+                        <td class="font-mono">${r.timestamp || "—"}</td>
+                        <td>${r.irradiance != null ? r.irradiance : "—"}</td>
+                        <td>${r.ambient_temp != null ? r.ambient_temp + "°" : "—"}</td>
+                        <td>${r.panel_temp != null ? r.panel_temp + "°" : "—"}</td>
+                        <td class="power-cell font-mono">${Number(r.actual_power || 0).toFixed(2)} mW</td>
+                        <td class="clean-cell font-mono">${Number(r.expected_power || 0).toFixed(2)} mW</td>
+                        <td class="loss-cell font-mono">${lossNum.toFixed(1)}%</td>
+                        <td><span class="status-badge-chip ${badgeClass}">${r.status || "Normal"}</span></td>
+                    </tr>`;
+                }).join("");
+            }
+            const elCycles = document.getElementById("badgeCyclesLogged");
+            if (elCycles) {
+                elCycles.textContent = `${data.recent_readings.length} Cycles Logged (Live)`;
             }
         }
     }

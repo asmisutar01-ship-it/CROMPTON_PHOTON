@@ -1111,5 +1111,61 @@ body {
     color: #10b981;
 }
 
+.badge-source {
+    font-size: 0.68rem;
+    color: var(--color-primary-light);
+    font-weight: 600;
+}
+
+/* Diagnostic / Model Mismatch State */
+.status-pill-mismatch {
+    background: rgba(245, 158, 11, 0.18) !important;
+    border-color: rgba(245, 158, 11, 0.45) !important;
+    color: #fbbf24 !important;
+}
+
+.rec-banner.rec-banner-mismatch {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.rec-banner-mismatch .rec-action {
+    color: #fbbf24;
+}
+
+.cleaning-rec-card.rec-state-mismatch {
+    border-left-color: #fbbf24;
+}
+
+/* Table Status Badge Chips */
+.status-badge-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.status-badge-chip.badge-soiled {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-badge-chip.badge-watch {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-badge-chip.badge-clean {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
 
 

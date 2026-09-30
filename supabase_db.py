@@ -63,9 +63,9 @@ class SupabaseDB:
         """
         Inserts a single panel telemetry reading into the 'solar_readings' table.
         Expected fields:
-            - voltage (float)
-            - current (float)
-            - actual_power_w (float, always calculated from voltage × current)
+            - voltage (float, Volts [0, 6.0V])
+            - current (float, mA [0, 4.0mA])
+            - actual_power_w (float, stored in mW: actual_power_mW = voltage × current, max 3000.0 mW / 3W)
             - ldr_value (float, raw light-level indicator)
             - panel_temperature (float, optional)
             - node_id (str, optional, defaults to 'CR-SOLAR-001')
@@ -75,7 +75,7 @@ class SupabaseDB:
 
         voltage = float(reading_data.get("voltage", 0.0))
         current = float(reading_data.get("current", 0.0))
-        actual_power_w = round(voltage * current, 2)
+        actual_power_mw = round(max(0.0, min(voltage * max(0.0, current), 3000.0)), 4)
         panel_temp = reading_data.get("panel_temperature")
         if panel_temp is not None:
             panel_temp = float(panel_temp)
@@ -85,8 +85,8 @@ class SupabaseDB:
             "node_id": str(reading_data.get("node_id", "CR-SOLAR-001")),
             "voltage": round(voltage, 2),
             "current": round(current, 3),
-            "power": actual_power_w,
-            "actual_power_w": actual_power_w,
+            "power": actual_power_mw,
+            "actual_power_w": actual_power_mw,
             "ldr_value": float(reading_data["ldr_value"]) if reading_data.get("ldr_value") is not None else None,
             "panel_temperature": round(panel_temp, 2) if panel_temp is not None else None,
         }

@@ -11,8 +11,8 @@ from prediction_model import (
     generate_demo_training_data
 )
 
-def calculate_expected_power(irradiance: float, temp_c: float, rated_capacity_w: float = 400.0) -> float:
-    """Wrapper using ML model for expected clean power."""
+def calculate_expected_power(irradiance: float, temp_c: float, rated_capacity_mw: float = 3000.0) -> float:
+    """Wrapper using ML model for expected clean power (returns value in mW, bounded [0, 3000.0] / 3W)."""
     input_data = {
         "solar_radiation": irradiance,
         "ambient_temperature": temp_c,
